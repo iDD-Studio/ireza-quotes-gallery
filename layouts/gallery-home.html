@@ -1,0 +1,504 @@
+{{ define "main" }}
+  <div class='hx:mx-auto hx:flex hextra-max-page-width'>
+    {{ partial "sidebar.html" (dict "context" . "disableSidebar" true) }}
+    <div class="hx:w-full hx:break-words hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:pb-8 hx:pt-8 hx:md:pt-12 hx:pl-[max(env(safe-area-inset-left),1.5rem)] hx:pr-[max(env(safe-area-inset-left),1.5rem)]">
+      <div class="hx:flex hx:flex-col hx:items-start">
+        <!-- Gallery Header -->
+      <div class="hx:w-full hx:text-center hx:mb-8">
+        <h1 class="hx:text-4xl hx:font-bold hx:mb-4">伊莱莎语录</h1>
+        {{- $quotesDir := "static/quotes-images" -}}
+        {{- $totalImages := 0 -}}
+        {{- if fileExists $quotesDir -}}
+          {{- range (readDir $quotesDir) -}}
+            {{- if and (not .IsDir) (or (strings.HasSuffix .Name ".jpg") (strings.HasSuffix .Name ".jpeg") (strings.HasSuffix .Name ".png") (strings.HasSuffix .Name ".webp") (strings.HasSuffix .Name ".gif")) -}}
+              {{- $totalImages = add $totalImages 1 -}}
+            {{- end -}}
+          {{- end -}}
+        {{- end -}}
+        <p class="hx:text-lg hx:text-gray-600 hx:dark:text-white">当前语录总数：{{ $totalImages }}</p>
+      </div>
+
+        <!-- Content for search indexing (visually hidden) -->
+        <div class="hx:sr-only">
+          {{ .Content }}
+        </div>
+
+        <!-- Gallery Search -->
+        <div class="hx:w-full hx:max-w-md hx:mx-auto hx:mb-6">
+          <div class="hx:relative">
+            <input type="text" id="gallery-search" placeholder="搜索语录..." 
+                   class="hx:w-full hx:px-4 hx:py-2 hx:border hx:border-gray-300 hx:rounded-lg hx:focus:outline-none hx:focus:ring-2 hx:focus:ring-blue-500 hx:focus:border-transparent dark:hx:bg-gray-800 dark:hx:border-gray-600 dark:hx:text-white dark:hx:placeholder-gray-400">
+            <svg class="hx:absolute hx:right-3 hx:top-2.5 hx:w-5 hx:h-5 hx:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Refresh Button -->
+        <div class="hx:w-full hx:text-center hx:mb-6">
+          <button id="refresh-gallery" 
+                  class="hx:bg-blue-500 hover:hx:bg-blue-600 hx:text-white hx:font-medium hx:py-2 hx:px-6 hx:rounded-lg hx:transition-colors hx:duration-200">
+            <svg class="hx:inline-block hx:w-4 hx:h-4 hx:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            随机语录
+          </button>
+        </div>
+
+        <!-- Gallery Container -->
+        <div class="hx:w-full" id="gallery-container">
+          <!-- Images will be loaded here dynamically -->
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hx:w-full hx:text-center hx:py-8 hx:hidden">
+          <div class="hx:inline-block hx:animate-spin hx:rounded-full hx:h-8 hx:w-8 hx:border-b-2 hx:border-blue-500"></div>
+          <p class="hx:mt-2 hx:text-gray-600 dark:hx:text-gray-300">加载中...</p>
+        </div>
+
+        <!-- Toast Styles -->
+        <style>
+        /* Toast container styles */
+        .hextra-toast-container {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 9999;
+          pointer-events: none;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .hextra-toast {
+          background: #10b981;
+          color: white;
+          padding: 12px 16px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          min-width: 200px;
+          max-width: 350px;
+          transform: translateX(100%);
+          opacity: 0;
+          transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          pointer-events: auto;
+        }
+        .hextra-toast.show { transform: translateX(0); opacity: 1; }
+        .hextra-toast.hide { transform: translateX(100%); opacity: 0; }
+        .hextra-toast-icon { width: 20px; height: 20px; flex-shrink: 0; }
+        .hextra-toast-message { flex: 1; }
+        .hextra-toast.error { background: #ef4444; }
+        .hextra-toast.warning { background: #f59e0b; }
+        .hextra-toast.info { background: #3b82f6; }
+        
+        /* Card-centered Toast Styles */
+        .hextra-card-toast {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) scale(0);
+          z-index: 1000;
+          opacity: 0;
+          transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          pointer-events: none;
+        }
+        .hextra-card-toast.show {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+        .hextra-card-toast.hide {
+          transform: translate(-50%, -50%) scale(0);
+          opacity: 0;
+        }
+        .hextra-card-toast-content {
+          background: rgba(0, 0, 0, 0.9);
+          color: white;
+          padding: 12px 16px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          min-width: 120px;
+          max-width: 250px;
+          text-align: center;
+          backdrop-filter: blur(10px);
+        }
+        .hextra-card-toast-icon {
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+        }
+        .hextra-card-toast-message {
+          flex: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .hextra-card-toast-success .hextra-card-toast-content {
+          background: rgba(16, 185, 129, 0.95);
+        }
+        .hextra-card-toast-error .hextra-card-toast-content {
+          background: rgba(239, 68, 68, 0.95);
+        }
+        .hextra-card-toast-warning .hextra-card-toast-content {
+          background: rgba(245, 158, 11, 0.95);
+        }
+        .hextra-card-toast-info .hextra-card-toast-content {
+          background: rgba(59, 130, 246, 0.95);
+        }
+        
+        /* Easy Image Card hover effects */
+        .hextra-easy-image-card {
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        
+        .hextra-easy-image-card:hover {
+          transform: scale(1.02);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .hextra-easy-image-card img {
+          transition: all 0.2s ease;
+        }
+        
+        .hextra-easy-image-card:hover img {
+          transform: scale(1.05);
+        }
+        
+        .hextra-easy-image-copy-indicator {
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 640px) {
+          .hextra-toast-container {
+            top: 10px;
+            right: 10px;
+            left: 10px;
+            align-items: stretch;
+          }
+          .hextra-toast {
+            max-width: none;
+            transform: translateY(-100%);
+            transform: translateX(0);
+          }
+          .hextra-toast.show {
+            transform: translateY(0);
+          }
+          .hextra-toast.hide {
+            transform: translateY(-100%);
+          }
+        }
+        </style>
+
+        <!-- Gallery JavaScript -->
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            // Initialize toast container
+            if (!document.getElementById('hextra-toast-container')) {
+              const container = document.createElement('div');
+              container.id = 'hextra-toast-container';
+              container.className = 'hextra-toast-container';
+              document.body.appendChild(container);
+            }
+
+             // All available images in the static/quotes-images directory
+             const allImages = [
+               {{- $quotesDir := "static/quotes-images" -}}
+               {{- if fileExists $quotesDir -}}
+                 {{- range (readDir $quotesDir) -}}
+                   {{- if and (not .IsDir) (or (strings.HasSuffix .Name ".jpg") (strings.HasSuffix .Name ".jpeg") (strings.HasSuffix .Name ".png") (strings.HasSuffix .Name ".webp") (strings.HasSuffix .Name ".gif")) -}}
+                     '{{ printf "%squotes-images/%s" $.Site.BaseURL .Name }}',
+                   {{- end -}}
+                 {{- end -}}
+               {{- else -}}
+                 {{- warnf "quotes-images directory not found at %s" $quotesDir -}}
+               {{- end -}}
+             ];
+
+            console.log('Available images:', allImages);
+
+            // Current display state
+            let currentImages = [];
+
+            function shuffleArray(array) {
+              const shuffled = [...array];
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              return shuffled;
+            }
+
+            function searchImages(query) {
+              if (!query.trim()) {
+                return allImages;
+              }
+              
+              const searchTerm = query.toLowerCase();
+              return allImages.filter(imagePath => {
+                const fileName = imagePath.split('/').pop().toLowerCase();
+                return fileName.includes(searchTerm);
+              });
+            }
+
+            function highlightSearchTerm(text, searchTerm) {
+              if (!searchTerm) return text;
+              const regex = new RegExp(`(${searchTerm})`, 'gi');
+              return text.replace(regex, '<mark class="hx:bg-yellow-200 dark:hx:bg-yellow-600">$1</mark>');
+            }
+
+            function displayImages(imagesToShow, searchTerm = '') {
+              const container = document.getElementById('gallery-container');
+              const loadingIndicator = document.getElementById('loading-indicator');
+              
+              // Show loading indicator
+              loadingIndicator.classList.remove('hx:hidden');
+              container.innerHTML = '';
+
+              // Update current images state
+              currentImages = imagesToShow;
+
+              // Create easy-image-cards container with custom size for 5 per row
+              let cardsHTML = '<div class="hextra-easy-image-cards hextra-easy-image-cards-xsmall">';
+              
+              if (imagesToShow.length === 0) {
+                cardsHTML += '<div class="hx:w-full hx:text-center hx:py-8"><p class="hx:text-gray-500 dark:hx:text-gray-400">未找到匹配的图片</p></div>';
+              } else {
+                imagesToShow.forEach(imagePath => {
+                  const fileName = imagePath.split('/').pop();
+                  const imageAlt = fileName.split('.')[0]; // Use filename as alt text
+                  const displayName = highlightSearchTerm(fileName, searchTerm);
+                  
+                  cardsHTML += `
+                    <div class="hextra-easy-image-card hx:group hx:relative" onclick="copyImageToClipboard('${imagePath}', this)" title="${fileName}">
+                      <img
+                        alt="${imageAlt}"
+                        class="hextra-easy-image-card-image hx:w-full hx:h-auto hx:object-contain"
+                        loading="lazy"
+                        decoding="async"
+                        src="${imagePath}"
+                      />
+                      <div class="hextra-easy-image-copy-indicator hx:absolute hx:inset-0 hx:flex hx:items-center hx:justify-center hx:opacity-0 hx:transition-opacity hx:duration-200 hx:pointer-events-none">
+                        <div class="hx:text-white hx:text-sm hx:font-medium hx:flex hx:items-center hx:gap-2">
+                          <svg class="hx:w-5 hx:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          <span class="copy-text">点击复制</span>
+                        </div>
+                      </div>
+                      ${searchTerm ? `<div class="hx:absolute hx:bottom-0 hx:left-0 hx:right-0 hx:bg-black hx:bg-opacity-75 hx:text-white hx:text-xs hx:p-2 hx:truncate">${displayName}</div>` : ''}
+                    </div>
+                  `;
+                });
+              }
+              
+              cardsHTML += '</div>';
+              
+              // Add search results info
+              if (searchTerm) {
+                cardsHTML = `<div class="hx:mb-4 hx:text-center"><p class="hx:text-gray-600 dark:hx:text-gray-300">搜索 "${searchTerm}" 找到 ${imagesToShow.length} 张图片</p></div>` + cardsHTML;
+              }
+              
+              // Simulate loading delay for better UX
+              setTimeout(() => {
+                container.innerHTML = cardsHTML;
+                loadingIndicator.classList.add('hx:hidden');
+                
+                // Add hover effects
+                addHoverEffects();
+              }, 300);
+            }
+
+            function loadRandomImages() {
+              // Get random 20 images (or all if less than 20)
+              const shuffledImages = shuffleArray(allImages);
+              const selectedImages = shuffledImages.slice(0, Math.min(20, shuffledImages.length));
+              displayImages(selectedImages);
+            }
+
+            function addHoverEffects() {
+              const cards = document.querySelectorAll('.hextra-easy-image-card');
+              cards.forEach(card => {
+                const indicator = card.querySelector('.hextra-easy-image-copy-indicator');
+                
+                card.addEventListener('mouseenter', () => {
+                  if (indicator) {
+                    indicator.style.opacity = '1';
+                  }
+                });
+                
+                card.addEventListener('mouseleave', () => {
+                  if (indicator && !card.classList.contains('copied')) {
+                    indicator.style.opacity = '0';
+                  }
+                });
+                
+                // Add click handler to prevent event bubbling
+                card.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                });
+              });
+            }
+
+            // Event listeners
+            document.getElementById('refresh-gallery').addEventListener('click', loadRandomImages);
+
+            // Search functionality
+            const searchInput = document.getElementById('gallery-search');
+            let searchTimeout;
+
+            searchInput.addEventListener('input', function() {
+              clearTimeout(searchTimeout);
+              searchTimeout = setTimeout(() => {
+                const query = this.value.trim();
+                if (query) {
+                  const searchResults = searchImages(query);
+                  displayImages(searchResults, query);
+                } else {
+                  // If search is cleared, restore random images
+                  loadRandomImages();
+                }
+              }, 300); // Debounce search
+            });
+
+            // Clear search on escape
+            searchInput.addEventListener('keydown', function(e) {
+              if (e.key === 'Escape') {
+                this.value = '';
+                this.dispatchEvent(new Event('input'));
+              }
+            });
+
+            // Load initial images
+            loadRandomImages();
+            
+            // Test if copyImageToClipboard function is available
+            console.log('copyImageToClipboard function available:', typeof window.copyImageToClipboard);
+            
+            // If the function is not available from easy-image-copy.js, provide a fallback
+            if (typeof window.copyImageToClipboard === 'undefined') {
+              console.warn('copyImageToClipboard not found, creating fallback...');
+              window.copyImageToClipboard = async function(imageUrl, cardElement) {
+                console.log('Fallback copyImageToClipboard called');
+                
+                // Show copying state
+                cardElement.classList.add('copied');
+                const copyText = cardElement.querySelector('.copy-text');
+                if (copyText) {
+                  const originalText = copyText.textContent;
+                  copyText.textContent = '复制中...';
+                  
+                  try {
+                    // Simple URL copy as fallback
+                    await navigator.clipboard.writeText(imageUrl);
+                    copyText.textContent = '已复制!';
+                    
+                    // Show toast on card
+                    showToastOnCard('图片链接复制成功！', 'success', 1000, cardElement);
+                    
+                    setTimeout(() => {
+                      cardElement.classList.remove('copied');
+                      copyText.textContent = originalText;
+                      // Reset hover indicator opacity
+                      const indicator = cardElement.querySelector('.hextra-easy-image-copy-indicator');
+                      if (indicator) {
+                        indicator.style.opacity = '0';
+                      }
+                    }, 1000);
+                  } catch (error) {
+                    console.error('Copy failed:', error);
+                    copyText.textContent = '复制失败';
+                    showToastOnCard('复制失败，请重试', 'error', 1000, cardElement);
+                    
+                    setTimeout(() => {
+                      cardElement.classList.remove('copied');
+                      copyText.textContent = originalText;
+                      // Reset hover indicator opacity
+                      const indicator = cardElement.querySelector('.hextra-easy-image-copy-indicator');
+                      if (indicator) {
+                        indicator.style.opacity = '0';
+                      }
+                    }, 1000);
+                  }
+                }
+              };
+              
+              // Also provide the toast functions if not available
+              window.showToastOnCard = function(message, type, duration, cardElement) {
+                // Remove any existing toast on this card
+                const existingToast = cardElement.querySelector('.hextra-card-toast');
+                if (existingToast) {
+                  existingToast.remove();
+                }
+                
+                // Create toast element for the card
+                const toast = document.createElement('div');
+                toast.className = `hextra-card-toast hextra-card-toast-${type}`;
+                
+                // Create icon based on type
+                const iconSvg = getToastIcon(type);
+                
+                toast.innerHTML = `
+                  <div class="hextra-card-toast-content">
+                    <div class="hextra-card-toast-icon">${iconSvg}</div>
+                    <div class="hextra-card-toast-message">${message}</div>
+                  </div>
+                `;
+                
+                // Add to card
+                cardElement.appendChild(toast);
+                
+                // Trigger show animation
+                setTimeout(() => {
+                  toast.classList.add('show');
+                }, 10);
+                
+                // Auto remove after duration
+                setTimeout(() => {
+                  toast.classList.remove('show');
+                  toast.classList.add('hide');
+                  setTimeout(() => {
+                    if (toast.parentNode) {
+                      toast.parentNode.removeChild(toast);
+                    }
+                  }, 300);
+                }, duration);
+              };
+              
+              window.getToastIcon = function(type) {
+                const icons = {
+                  success: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>`,
+                  error: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>`,
+                  warning: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>`,
+                  info: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>`
+                };
+                return icons[type] || icons.info;
+              };
+            }
+          });
+        </script>
+      </div>
+    </div>
+  </div>
+{{ end }}

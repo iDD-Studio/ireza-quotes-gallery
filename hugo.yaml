@@ -1,0 +1,84 @@
+# 根目录站点配置（由 hugo.yaml 统一管理，已不再使用 hugo.toml）
+baseURL: "https://example.com/"
+title: "伊莱莎语录"
+
+enableRobotsTXT: true
+enableGitInfo: false   # 无 .git 或不需要 Git 信息时设为 false，避免 "not a git repository" 报错
+hasCJKLanguage: true
+
+module:
+  hugoVersion:
+    min: "0.146.0"
+
+# 自定义输出格式 llms（供 home 使用）
+outputFormats:
+  llms:
+    name: llms
+    baseName: llms
+    mediaType: text/plain
+    isPlainText: true
+
+# 仅保留画廊首页
+outputs:
+  home: [html, llms]
+  page: [html]
+
+defaultContentLanguage: zh-cn
+languageCode: zh-CN
+
+markup:
+  highlight:
+    noClasses: false
+  goldmark:
+    renderer:
+      unsafe: true
+    extensions:
+      passthrough:
+        delimiters:
+          block: [['\[', '\]'], ['$$', '$$']]
+          inline: [['\(', '\)']]
+        enable: true
+
+enableInlineShortcodes: true
+
+menu:
+  main:
+    - name: 主题切换
+      weight: 1
+      params:
+        type: theme-toggle
+  sidebar: []
+
+params:
+  description: 伊莱莎语录画廊
+  externalLinkDecoration: true
+  navbar:
+    displayTitle: true
+    displayLogo: true
+    logo:
+      path: images/site-logo.png
+      dark: images/site-logo.png
+      width: 40
+      height: 40
+      link: /
+    width: wide
+  theme:
+    default: system
+    displayToggle: true
+  footer:
+    enable: true
+    displayCopyright: true
+    displayPoweredBy: true
+    width: normal
+  displayUpdatedDate: true
+  dateFormat: "January 2, 2006"
+  search:
+    enable: false
+  highlight:
+    copy:
+      enable: true
+      display: hover
+  page:
+    width: normal
+  comments:
+    enable: false
