@@ -444,12 +444,23 @@ document.addEventListener('DOMContentLoaded', function () {
       const originalText = copyText.textContent;
       copyText.textContent = '复制中...';
 
-      console.log('Attempting to fetch image:', imageUrl);
+      // 规范为当前站点同源 URL 再拉取，避免部署后 baseURL 与访问域名不一致导致 CORS（只复制到链接）
+      let fetchUrl = imageUrl;
+      try {
+        if (imageUrl.startsWith('http')) {
+          const parsed = new URL(imageUrl);
+          if (parsed.origin !== window.location.origin) {
+            fetchUrl = window.location.origin + parsed.pathname;
+          }
+        }
+      } catch (_) {}
+
+      console.log('Attempting to fetch image:', fetchUrl);
       
-      // Check if it's a cross-origin image (GitHub, external domains)
-      const isExternalImage = !imageUrl.startsWith(window.location.origin) && 
-                             !imageUrl.startsWith('/') && 
-                             !imageUrl.startsWith('./');
+      // 以规范后的 URL 判断是否同源/相对（同源或相对则按本地图片拉取）
+      const isExternalImage = !fetchUrl.startsWith(window.location.origin) && 
+                             !fetchUrl.startsWith('/') && 
+                             !fetchUrl.startsWith('./');
       
       let blob;
       
@@ -492,9 +503,9 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       } else {
-        // Handle local images
-        console.log('Local image detected, fetching directly...');
-        const response = await fetch(imageUrl);
+        // Handle local / same-origin images (use fetchUrl so Netlify 等部署与 baseURL 不一致时仍能复制图片)
+        console.log('Local/same-origin image detected, fetching directly...');
+        const response = await fetch(fetchUrl);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
