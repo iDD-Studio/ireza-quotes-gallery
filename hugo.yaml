@@ -1,5 +1,5 @@
 # 根目录站点配置（由 hugo.yaml 统一管理，已不再使用 hugo.toml）
-baseURL: "https://example.com/"
+baseURL: "https://quotes.ireza.top/" #填入自己的域名
 title: "伊莱莎语录"
 
 enableRobotsTXT: true
@@ -51,6 +51,10 @@ menu:
 
 params:
   description: 伊莱莎语录画廊
+  # 画廊页：标题与随机展示数量（可在本文件修改，无需改模板）
+  gallery:
+    title: "伊莱莎语录"   # 画廊主标题（<h1>）
+    randomCount: 20       # 首页随机展示的语录数量
   externalLinkDecoration: true
   navbar:
     displayTitle: true
@@ -71,7 +75,7 @@ params:
     displayPoweredBy: true
     width: normal
   displayUpdatedDate: true
-  dateFormat: "January 2, 2006"
+  dateFormat: "2026-03-10" #日期格式
   search:
     enable: false
   highlight:

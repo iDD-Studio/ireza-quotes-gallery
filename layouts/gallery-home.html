@@ -5,7 +5,7 @@
       <div class="hx:flex hx:flex-col hx:items-start">
         <!-- Gallery Header -->
       <div class="hx:w-full hx:text-center hx:mb-8">
-        <h1 class="hx:text-4xl hx:font-bold hx:mb-4">伊莱莎语录</h1>
+        <h1 class="hx:text-4xl hx:font-bold hx:mb-4">{{ site.Params.gallery.title | default site.Title | default "爱播语录" }}</h1>
         {{- $quotesDir := "static/quotes-images" -}}
         {{- $totalImages := 0 -}}
         {{- if fileExists $quotesDir -}}
@@ -322,9 +322,10 @@
             }
 
             function loadRandomImages() {
-              // Get random 20 images (or all if less than 20)
+              // 随机展示数量由 hugo 配置 params.gallery.randomCount 注入
+              const randomCount = {{ site.Params.gallery.randomCount | default 20 }};
               const shuffledImages = shuffleArray(allImages);
-              const selectedImages = shuffledImages.slice(0, Math.min(20, shuffledImages.length));
+              const selectedImages = shuffledImages.slice(0, Math.min(randomCount, shuffledImages.length));
               displayImages(selectedImages);
             }
 
