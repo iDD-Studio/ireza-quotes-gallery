@@ -9,7 +9,7 @@
 添加新图片路径为static/quotes-images，图片命名直接使用语录内容便于索引。
 
 ## 修改内容
-修改hugo.yaml文件的进行配置
+修改hugo.yaml配置文件与layouts/gallery-home.html页面进行配置
 
 ## 网站图标
 可在线制作网站favicons图标，并更新layouts/_partials/favicons.html的图标映射
